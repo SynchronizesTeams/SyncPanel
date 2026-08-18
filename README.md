@@ -44,7 +44,7 @@ A modern, self-hosted web hosting control panel that runs on Linux and integrate
 ## Production Installation (Debian 13)
 
 ```bash
-wget https://raw.githubusercontent.com/user/cloudpanel/main/installer/install.sh
+wget https://raw.githubusercontent.com/SynchronizesTeams/SyncPanel/main/installer/install.sh
 chmod +x install.sh
 sudo ./install.sh
 ```
