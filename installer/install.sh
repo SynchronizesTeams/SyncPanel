@@ -136,6 +136,7 @@ REQUIRED_PKGS=(
     "php-cli"
     "php-fpm"
     "php-pgsql"
+    "php-sqlite3"
     "php-redis"
     "php-zip"
     "php-mbstring"
@@ -242,9 +243,21 @@ cp -rf "$TMP_REPO_DIR/cli" "$INSTALL_DIR/"
 
 rm -rf "$TMP_REPO_DIR"
 
-info "Installing PHP backend dependencies via Composer..."
+info "Configuring environment and PostgreSQL database..."
 cd "$INSTALL_DIR/backend"
 
+if [[ ! -f .env ]]; then
+    cp .env.example .env
+fi
+
+# Provision PostgreSQL database & user
+systemctl start postgresql || true
+sudo -u postgres psql -c "CREATE USER syncpanel WITH PASSWORD 'secret';" 2>/dev/null || true
+sudo -u postgres psql -c "ALTER USER syncpanel WITH PASSWORD 'secret';" 2>/dev/null || true
+sudo -u postgres psql -c "CREATE DATABASE syncpanel OWNER syncpanel;" 2>/dev/null || true
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE syncpanel TO syncpanel;" 2>/dev/null || true
+
+info "Installing PHP backend dependencies via Composer..."
 if ! command -v composer &>/dev/null; then
     info "Installing Composer package manager..."
     curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer || true
@@ -257,13 +270,10 @@ else
     php composer.phar install --no-interaction --prefer-dist --optimize-autoloader --no-security-blocking 2>/dev/null || php composer.phar install --no-interaction
 fi
 
-info "Configuring environment and database migrations..."
-if [[ ! -f .env ]]; then
-    cp .env.example .env
-    php artisan key:generate --force
-fi
+info "Generating application encryption key..."
+php artisan key:generate --force
 
-info "Migrating database..."
+info "Migrating database tables..."
 php artisan migrate --force
 
 info "Creating initial Admin account..."
