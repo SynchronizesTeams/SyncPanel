@@ -27,7 +27,7 @@ check_os() {
     if [[ -f /etc/os-release ]]; then
         . /etc/os-release
         if [[ "$ID" != "debian" && "$ID" != "ubuntu" ]]; then
-            warn "Target operating system is Debian 13. System detected: ${NAME:-Linux} (${VERSION_ID:-})."
+            warn "Target operating system is Debian/Ubuntu. System detected: ${NAME:-Linux} (${VERSION_ID:-})."
             read -p "Do you wish to continue installation anyway? [y/N] " -n 1 -r
             echo
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -80,6 +80,11 @@ echo -e "${NC}"
 check_root
 check_os
 
+# Clean up old broken cloudflared repository entry if present to prevent apt-get update failure
+if [[ -f /etc/apt/sources.list.d/cloudflared.list ]]; then
+    rm -f /etc/apt/sources.list.d/cloudflared.list
+fi
+
 # Interactive prompts if arguments not supplied
 if [[ -z "$PANEL_DOMAIN" ]]; then
     read -p "Enter Panel Domain (e.g. panel.example.com): " PANEL_DOMAIN
@@ -106,14 +111,14 @@ REQUIRED_PKGS=(
     "postgresql"
     "postgresql-contrib"
     "redis-server"
-    "php8.3-cli"
-    "php8.3-fpm"
-    "php8.3-pgsql"
-    "php8.3-redis"
-    "php8.3-zip"
-    "php8.3-mbstring"
-    "php8.3-xml"
-    "php8.3-curl"
+    "php-cli"
+    "php-fpm"
+    "php-pgsql"
+    "php-redis"
+    "php-zip"
+    "php-mbstring"
+    "php-xml"
+    "php-curl"
 )
 
 MISSING_PKGS=()
@@ -173,12 +178,18 @@ else
     fi
 
     if [[ "$INSTALL_CF" == true ]]; then
-        info "Installing cloudflared daemon..."
-        mkdir -p /etc/apt/keyrings
-        curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | tee /etc/apt/keyrings/cloudflare-main.gpg >/dev/null
-        echo "deb [signed-by=/etc/apt/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared debian bookworm main" | tee /etc/apt/sources.list.d/cloudflared.list
-        apt-get update -qq && apt-get install -y -qq cloudflared || true
-        success "cloudflared installed successfully."
+        info "Installing cloudflared daemon from official Cloudflare binary release..."
+        ARCH=$(dpkg --print-architecture 2>/dev/null || echo "amd64")
+        CF_DEB_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}.deb"
+        TMP_DEB=$(mktemp /tmp/cloudflared-XXXXXX.deb)
+
+        if curl -fsSL "$CF_DEB_URL" -o "$TMP_DEB" 2>/dev/null || wget -q "$CF_DEB_URL" -O "$TMP_DEB" 2>/dev/null; then
+            dpkg -i "$TMP_DEB" &>/dev/null || apt-get install -f -y -qq
+            rm -f "$TMP_DEB"
+            success "cloudflared installed successfully."
+        else
+            warn "Failed to download cloudflared .deb package automatically."
+        fi
     fi
 fi
 
