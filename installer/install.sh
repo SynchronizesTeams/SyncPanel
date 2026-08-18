@@ -349,7 +349,14 @@ if command -v npm &>/dev/null; then
     npm run build
 fi
 
-chown -R cloudpanel:cloudpanel "$INSTALL_DIR"
+if [[ ! -f "$INSTALL_DIR/frontend/dist/index.html" ]]; then
+    warn "Frontend dist directory missing. Retrying build..."
+    npm run build || true
+fi
+
+# Ensure 755 permissions for Nginx www-data user access
+chmod -R 755 "$INSTALL_DIR"
+chown -R cloudpanel:www-data "$INSTALL_DIR" 2>/dev/null || chown -R cloudpanel:cloudpanel "$INSTALL_DIR"
 
 info "Configuring Nginx web server for SyncPanel (Port 8321)..."
 cp -f "$INSTALL_DIR/nginx/cloudpanel.conf" /etc/nginx/sites-available/cloudpanel.conf 2>/dev/null || true
