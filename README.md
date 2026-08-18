@@ -1,4 +1,4 @@
-# Self-Hosted Cloudflare Hosting Panel (CloudPanel)
+# Self-Hosted Cloudflare Hosting Panel (SyncPanel)
 
 A modern, self-hosted web hosting control panel that runs on Linux and integrates with Cloudflare (DNS + Tunnel) for multi-account static website hosting.
 
@@ -43,6 +43,12 @@ A modern, self-hosted web hosting control panel that runs on Linux and integrate
 
 ## Production Installation (Debian 13)
 
+### One-line Installer:
+```bash
+curl -fsSL https://raw.githubusercontent.com/SynchronizesTeams/SyncPanel/main/installer/install.sh | sudo bash
+```
+
+### Manual Download & Install:
 ```bash
 wget https://raw.githubusercontent.com/SynchronizesTeams/SyncPanel/main/installer/install.sh
 chmod +x install.sh
