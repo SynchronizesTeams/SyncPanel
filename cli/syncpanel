@@ -41,6 +41,28 @@ case "$COMMAND" in
         cd "$INSTALL_DIR/backend"
         php artisan db:seed --class=DatabaseSeeder
         ;;
+    user:reset)
+        EMAIL="${1:-admin@cloudpanel.local}"
+        PASS="${2:-admin123456}"
+        cd "$INSTALL_DIR/backend"
+        php artisan tinker --execute="
+            \$u = \App\Models\User::updateOrCreate(
+                ['email' => '$EMAIL'],
+                [
+                    'name' => 'Administrator',
+                    'password' => \Illuminate\Support\Facades\Hash::make('$PASS'),
+                    'role' => 'admin',
+                    'status' => 'active',
+                    'max_websites' => 100,
+                    'max_storage_mb' => 50000,
+                    'max_dns_records' => 1000
+                ]
+            );
+            echo 'Admin user account updated successfully!' . PHP_EOL;
+            echo 'Email    : ' . \$u->email . PHP_EOL;
+            echo 'Password : $PASS' . PHP_EOL;
+        "
+        ;;
     cache:clear)
         cd "$INSTALL_DIR/backend"
         php artisan cache:clear && php artisan config:clear
@@ -51,14 +73,15 @@ case "$COMMAND" in
         echo "Usage: syncpanel [command]"
         echo
         echo "Commands:"
-        echo "  install        Run full system installer"
-        echo "  update         Update SyncPanel to latest release"
-        echo "  uninstall      Uninstall panel and optionally remove data"
-        echo "  doctor         Run system diagnostics and health checks"
-        echo "  status         Show systemd services status"
-        echo "  restart        Restart panel, queue workers, and Nginx"
-        echo "  backup         Backup database and configuration"
-        echo "  restore <file> Restore panel from backup archive"
-        echo "  cache:clear    Clear Laravel cache and configs"
+        echo "  install                  Run full system installer"
+        echo "  update                   Update SyncPanel to latest release"
+        echo "  uninstall                Uninstall panel and optionally remove data"
+        echo "  doctor                   Run system diagnostics and health checks"
+        echo "  status                   Show systemd services status"
+        echo "  restart                  Restart panel, queue workers, and Nginx"
+        echo "  backup                   Backup database and configuration"
+        echo "  restore <file>           Restore panel from backup archive"
+        echo "  user:reset [email] [pass] Reset or seed Admin user credentials"
+        echo "  cache:clear              Clear Laravel cache and configs"
         ;;
 esac
