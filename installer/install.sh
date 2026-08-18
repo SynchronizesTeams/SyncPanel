@@ -241,7 +241,7 @@ cp -rf "$TMP_REPO_DIR/scripts" "$INSTALL_DIR/"
 cp -rf "$TMP_REPO_DIR/installer" "$INSTALL_DIR/"
 cp -rf "$TMP_REPO_DIR/cli" "$INSTALL_DIR/"
 
-rm -rf "$TMP_REPO_DIR"
+export COMPOSER_ALLOW_SUPERUSER=1
 
 info "Configuring environment and PostgreSQL database..."
 cd "$INSTALL_DIR/backend"
@@ -249,6 +249,8 @@ cd "$INSTALL_DIR/backend"
 if [[ ! -f .env ]]; then
     cp .env.example .env
 fi
+
+sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=pgsql/' .env
 
 # Provision PostgreSQL database & user
 systemctl start postgresql || true
@@ -269,6 +271,8 @@ else
     php -r "file_exists('composer.phar') || copy('https://getcomposer.org/composer.phar', 'composer.phar');"
     php composer.phar install --no-interaction --prefer-dist --optimize-autoloader --no-security-blocking 2>/dev/null || php composer.phar install --no-interaction
 fi
+
+php artisan config:clear 2>/dev/null || true
 
 info "Generating application encryption key..."
 php artisan key:generate --force
