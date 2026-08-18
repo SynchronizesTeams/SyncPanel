@@ -251,6 +251,13 @@ if [[ ! -f .env ]]; then
 fi
 
 sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=pgsql/' .env
+sed -i 's/^DB_HOST=.*/DB_HOST=127.0.0.1/' .env
+sed -i 's/^DB_PORT=.*/DB_PORT=5432/' .env
+sed -i 's/^DB_DATABASE=.*/DB_DATABASE=syncpanel/' .env
+sed -i 's/^DB_USERNAME=.*/DB_USERNAME=syncpanel/' .env
+sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=secret/' .env
+
+rm -f bootstrap/cache/*.php
 
 # Provision PostgreSQL database & user
 systemctl start postgresql || true
