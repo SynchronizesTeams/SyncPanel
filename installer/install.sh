@@ -41,12 +41,17 @@ check_os() {
 PANEL_DOMAIN=""
 ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
+AUTO_YES=false
 INSTALL_DIR="/opt/cloudpanel"
 WEBSITE_DIR="/srv/cloudpanel/websites"
 
-# Parse non-interactive CLI flags
+# Parse CLI flags
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -y|--yes)
+            AUTO_YES=true
+            shift
+            ;;
         --domain)
             PANEL_DOMAIN="$2"
             shift 2
@@ -89,18 +94,92 @@ if [[ -z "$ADMIN_PASSWORD" ]]; then
     echo
 fi
 
-info "Updating package lists..."
-apt-get update -qq
+# Step 1: Pre-installation Dependency Check
+info "Checking system dependencies status..."
+REQUIRED_PKGS=(
+    "curl"
+    "wget"
+    "git"
+    "unzip"
+    "tar"
+    "nginx"
+    "postgresql"
+    "postgresql-contrib"
+    "redis-server"
+    "php8.3-cli"
+    "php8.3-fpm"
+    "php8.3-pgsql"
+    "php8.3-redis"
+    "php8.3-zip"
+    "php8.3-mbstring"
+    "php8.3-xml"
+    "php8.3-curl"
+)
 
-info "Installing system dependencies..."
-apt-get install -y -qq curl wget git unzip tar nginx postgresql postgresql-contrib redis-server php8.3-cli php8.3-fpm php8.3-pgsql php8.3-redis php8.3-zip php8.3-mbstring php8.3-xml php8.3-curl || true
+MISSING_PKGS=()
 
-info "Checking/Installing cloudflared daemon..."
-if ! command -v cloudflared &> /dev/null; then
-    mkdir -p /etc/apt/keyrings
-    curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | tee /etc/apt/keyrings/cloudflare-main.gpg >/dev/null
-    echo "deb [signed-by=/etc/apt/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared debian bookworm main" | tee /etc/apt/sources.list.d/cloudflared.list
-    apt-get update -qq && apt-get install -y -qq cloudflared || true
+for pkg in "${REQUIRED_PKGS[@]}"; do
+    if dpkg -s "$pkg" &>/dev/null; then
+        echo -e "  ${GREEN}[INSTALLED]${NC} $pkg"
+    else
+        echo -e "  ${YELLOW}[MISSING]${NC}   $pkg"
+        MISSING_PKGS+=("$pkg")
+    fi
+done
+
+if [[ ${#MISSING_PKGS[@]} -gt 0 ]]; then
+    echo
+    warn "The following required dependencies are currently missing:"
+    for pkg in "${MISSING_PKGS[@]}"; do
+        echo -e "  - ${YELLOW}$pkg${NC}"
+    done
+    echo
+
+    if [[ "$AUTO_YES" != true ]]; then
+        read -p "Do you approve installing these missing dependencies now? [Y/n] " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Nn]$ ]]; then
+            error "Installation aborted by user (missing dependencies required)."
+            exit 1
+        fi
+    fi
+
+    info "Updating package repositories..."
+    apt-get update -qq
+
+    info "Installing missing dependencies..."
+    apt-get install -y -qq "${MISSING_PKGS[@]}" || true
+    success "Dependencies successfully installed."
+else
+    echo
+    success "All system package dependencies are already installed!"
+fi
+
+# Step 2: Check Cloudflare Tunnel Daemon (cloudflared)
+info "Checking Cloudflare Tunnel daemon (cloudflared)..."
+if command -v cloudflared &> /dev/null; then
+    echo -e "  ${GREEN}[INSTALLED]${NC} cloudflared"
+else
+    echo -e "  ${YELLOW}[MISSING]${NC}   cloudflared"
+    echo
+    INSTALL_CF=true
+    if [[ "$AUTO_YES" != true ]]; then
+        read -p "Do you approve installing the cloudflared daemon now? [Y/n] " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Nn]$ ]]; then
+            warn "Skipping cloudflared installation. Cloudflare Tunnel will require manual setup later."
+            INSTALL_CF=false
+        fi
+    fi
+
+    if [[ "$INSTALL_CF" == true ]]; then
+        info "Installing cloudflared daemon..."
+        mkdir -p /etc/apt/keyrings
+        curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | tee /etc/apt/keyrings/cloudflare-main.gpg >/dev/null
+        echo "deb [signed-by=/etc/apt/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared debian bookworm main" | tee /etc/apt/sources.list.d/cloudflared.list
+        apt-get update -qq && apt-get install -y -qq cloudflared || true
+        success "cloudflared installed successfully."
+    fi
 fi
 
 info "Creating system user 'cloudpanel'..."
