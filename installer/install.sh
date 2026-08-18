@@ -351,9 +351,8 @@ fi
 
 chown -R cloudpanel:cloudpanel "$INSTALL_DIR"
 
-info "Configuring Nginx web server..."
+info "Configuring Nginx web server for SyncPanel (Port 8321)..."
 cp -f "$INSTALL_DIR/nginx/cloudpanel.conf" /etc/nginx/sites-available/cloudpanel.conf 2>/dev/null || true
-rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/000-default /etc/nginx/sites-enabled/default.conf 2>/dev/null || true
 ln -sf /etc/nginx/sites-available/cloudpanel.conf /etc/nginx/sites-enabled/cloudpanel.conf 2>/dev/null || true
 nginx -t &>/dev/null && systemctl reload nginx || true
 
@@ -382,9 +381,9 @@ echo
 success "======================================================="
 success " SyncPanel installation completed successfully!       "
 success "======================================================="
-info "Local IP Access: http://$SERVER_IP"
+info "Local IP Access: http://$SERVER_IP:8321"
 if [[ -n "$PANEL_DOMAIN" && "$PANEL_DOMAIN" != "localhost" ]]; then
-    info "Domain Access  : https://$PANEL_DOMAIN (or http://$PANEL_DOMAIN)"
+    info "Domain Access  : http://$PANEL_DOMAIN:8321"
 fi
 info "Admin Email    : $ADMIN_EMAIL"
 if [[ "$GENERATED_PASS" == true ]]; then
