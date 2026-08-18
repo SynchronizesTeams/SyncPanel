@@ -183,14 +183,31 @@ else
     success "All system package dependencies are already installed!"
 fi
 
-info "Activating PHP modules (pdo_pgsql, pgsql, pdo_sqlite, redis)..."
+info "Activating PHP PostgreSQL (pdo_pgsql) database driver..."
 PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "")
+
+apt-get update -qq
+apt-get install -y -qq php-pgsql php-sqlite3 libpq5 2>/dev/null || true
 if [[ -n "$PHP_VER" ]]; then
-    apt-get install -y -qq "php${PHP_VER}-pgsql" "php${PHP_VER}-sqlite3" libpq5 2>/dev/null || true
+    apt-get install -y -qq "php${PHP_VER}-pgsql" "php${PHP_VER}-sqlite3" "php${PHP_VER}-common" 2>/dev/null || true
+fi
+
+phpenmod pgsql pdo_pgsql pdo_sqlite sqlite3 redis mbstring xml curl zip 2>/dev/null || true
+if [[ -n "$PHP_VER" ]]; then
     phpenmod -v "$PHP_VER" pgsql pdo_pgsql pdo_sqlite sqlite3 redis mbstring xml curl zip 2>/dev/null || true
 fi
-apt-get install -y -qq php-pgsql php-sqlite3 libpq5 2>/dev/null || true
-phpenmod pgsql pdo_pgsql pdo_sqlite sqlite3 redis mbstring xml curl zip 2>/dev/null || true
+
+# Locate pdo_pgsql.so on disk and inject into conf.d to guarantee module loading
+PDO_PGSQL_PATH=$(find /usr/lib/php /etc/php -name "pdo_pgsql.so" 2>/dev/null | head -n 1 || echo "")
+for conf_dir in /etc/php/*/cli/conf.d /etc/php/*/fpm/conf.d; do
+    if [[ -d "$conf_dir" ]]; then
+        if [[ -n "$PDO_PGSQL_PATH" ]]; then
+            echo "extension=$PDO_PGSQL_PATH" > "$conf_dir/20-syncpanel-pgsql.ini" 2>/dev/null || true
+        else
+            echo -e "extension=pdo.so\nextension=pdo_pgsql.so\nextension=pgsql.so" > "$conf_dir/20-syncpanel-pgsql.ini" 2>/dev/null || true
+        fi
+    fi
+done
 
 # Step 2: Check Cloudflare Tunnel Daemon (cloudflared)
 info "Checking Cloudflare Tunnel daemon (cloudflared)..."
@@ -294,14 +311,18 @@ info "Generating application encryption key..."
 php artisan key:generate --force
 
 info "Migrating database tables..."
-PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "")
 if ! php -m | grep -qi "pdo_pgsql"; then
-    warn "PHP pdo_pgsql module not loaded in CLI. Forcing version-specific extension activation (php${PHP_VER}-pgsql)..."
-    apt-get install -y -qq "php${PHP_VER}-pgsql" php-pgsql libpq5 2>/dev/null || true
-    if [[ -n "$PHP_VER" ]]; then
-        phpenmod -v "$PHP_VER" pgsql pdo_pgsql 2>/dev/null || true
-    fi
-    phpenmod pgsql pdo_pgsql 2>/dev/null || true
+    warn "PHP pdo_pgsql module not detected by PHP CLI. Re-attempting driver injection..."
+    PDO_PGSQL_PATH=$(find /usr/lib/php /etc/php -name "pdo_pgsql.so" 2>/dev/null | head -n 1 || echo "")
+    for conf_dir in /etc/php/*/cli/conf.d /etc/php/*/fpm/conf.d; do
+        if [[ -d "$conf_dir" ]]; then
+            if [[ -n "$PDO_PGSQL_PATH" ]]; then
+                echo "extension=$PDO_PGSQL_PATH" > "$conf_dir/20-syncpanel-pgsql.ini" 2>/dev/null || true
+            else
+                echo -e "extension=pdo.so\nextension=pdo_pgsql.so\nextension=pgsql.so" > "$conf_dir/20-syncpanel-pgsql.ini" 2>/dev/null || true
+            fi
+        fi
+    done
 fi
 php artisan migrate --force
 
