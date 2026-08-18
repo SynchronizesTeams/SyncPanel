@@ -35,8 +35,8 @@ info "Putting application into maintenance mode..."
 cd "$INSTALL_DIR/backend"
 php artisan down || true
 
-info "Downloading latest SyncPanel code from GitHub..."
 TMP_REPO_DIR=$(mktemp -d)
+info "Downloading latest SyncPanel code from GitHub..."
 git clone --depth 1 https://github.com/SynchronizesTeams/SyncPanel.git "$TMP_REPO_DIR"
 
 info "Updating application source code..."
@@ -47,13 +47,29 @@ cp -rf "$TMP_REPO_DIR/cli/"* "$INSTALL_DIR/cli/"
 
 rm -rf "$TMP_REPO_DIR"
 
+info "Installing PHP dependencies via Composer..."
+cd "$INSTALL_DIR/backend"
+if command -v composer &>/dev/null; then
+    composer install --no-interaction --prefer-dist --optimize-autoloader --no-audit --no-security-blocking 2>/dev/null || composer install --no-interaction --prefer-dist
+fi
+
 info "Running database migrations..."
 php artisan migrate --force
+
+info "Building React frontend assets..."
+cd "$INSTALL_DIR/frontend"
+if command -v npm &>/dev/null; then
+    npm install --no-audit
+    npm run build
+fi
+
+chown -R cloudpanel:cloudpanel "$INSTALL_DIR"
 
 info "Restarting background queue workers..."
 systemctl restart cloudpanel-worker.service || true
 
 info "Bringing application out of maintenance mode..."
+cd "$INSTALL_DIR/backend"
 php artisan up
 
 success "SyncPanel successfully updated to latest version!"

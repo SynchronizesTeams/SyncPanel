@@ -111,6 +111,9 @@ REQUIRED_PKGS=(
     "postgresql"
     "postgresql-contrib"
     "redis-server"
+    "composer"
+    "nodejs"
+    "npm"
     "php-cli"
     "php-fpm"
     "php-pgsql"
@@ -220,11 +223,51 @@ cp -rf "$TMP_REPO_DIR/cli" "$INSTALL_DIR/"
 
 rm -rf "$TMP_REPO_DIR"
 
-info "Configuring environment and database migrations..."
+info "Installing PHP backend dependencies via Composer..."
 cd "$INSTALL_DIR/backend"
+
+if ! command -v composer &>/dev/null; then
+    info "Installing Composer package manager..."
+    curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer || true
+fi
+
+if command -v composer &>/dev/null; then
+    composer install --no-interaction --prefer-dist --optimize-autoloader --no-audit --no-security-blocking 2>/dev/null || composer install --no-interaction --prefer-dist
+else
+    php -r "file_exists('composer.phar') || copy('https://getcomposer.org/composer.phar', 'composer.phar');"
+    php composer.phar install --no-interaction --prefer-dist --optimize-autoloader --no-security-blocking 2>/dev/null || php composer.phar install --no-interaction
+fi
+
+info "Configuring environment and database migrations..."
 if [[ ! -f .env ]]; then
     cp .env.example .env
     php artisan key:generate --force
+fi
+
+info "Migrating database..."
+php artisan migrate --force
+
+info "Creating initial Admin account..."
+php artisan tinker --execute="
+    \App\Models\User::updateOrCreate(
+        ['email' => '$ADMIN_EMAIL'],
+        [
+            'name' => 'Administrator',
+            'password' => \Illuminate\Support\Facades\Hash::make('$ADMIN_PASSWORD'),
+            'role' => 'admin',
+            'status' => 'active',
+            'max_websites' => 100,
+            'max_storage_mb' => 50000,
+            'max_dns_records' => 1000
+        ]
+    );
+" || true
+
+info "Building React frontend static assets..."
+cd "$INSTALL_DIR/frontend"
+if command -v npm &>/dev/null; then
+    npm install --no-audit
+    npm run build
 fi
 
 chown -R cloudpanel:cloudpanel "$INSTALL_DIR"
