@@ -28,11 +28,13 @@ check_os() {
         . /etc/os-release
         if [[ "$ID" != "debian" && "$ID" != "ubuntu" ]]; then
             warn "Target operating system is Debian/Ubuntu. System detected: ${NAME:-Linux} (${VERSION_ID:-})."
-            read -p "Do you wish to continue installation anyway? [y/N] " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                error "Installation aborted."
-                exit 1
+            if [[ -c /dev/tty ]]; then
+                read -p "Do you wish to continue installation anyway? [y/N] " -n 1 -r < /dev/tty
+                echo
+                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                    error "Installation aborted."
+                    exit 1
+                fi
             fi
         fi
     fi
@@ -42,6 +44,7 @@ PANEL_DOMAIN=""
 ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
 AUTO_YES=false
+GENERATED_PASS=false
 INSTALL_DIR="/opt/cloudpanel"
 WEBSITE_DIR="/srv/cloudpanel/websites"
 
@@ -85,18 +88,34 @@ if [[ -f /etc/apt/sources.list.d/cloudflared.list ]]; then
     rm -f /etc/apt/sources.list.d/cloudflared.list
 fi
 
-# Interactive prompts if arguments not supplied
+# TTY-aware Interactive Prompts
 if [[ -z "$PANEL_DOMAIN" ]]; then
-    read -p "Enter Panel Domain (e.g. panel.example.com): " PANEL_DOMAIN
+    if [[ -c /dev/tty ]]; then
+        read -p "Enter Panel Domain (e.g. panel.example.com): " PANEL_DOMAIN < /dev/tty
+    fi
+    if [[ -z "$PANEL_DOMAIN" ]]; then
+        PANEL_DOMAIN=$(hostname -f 2>/dev/null || hostname 2>/dev/null || echo "localhost")
+    fi
 fi
 
 if [[ -z "$ADMIN_EMAIL" ]]; then
-    read -p "Enter Admin Email: " ADMIN_EMAIL
+    if [[ -c /dev/tty ]]; then
+        read -p "Enter Admin Email: " ADMIN_EMAIL < /dev/tty
+    fi
+    if [[ -z "$ADMIN_EMAIL" ]]; then
+        ADMIN_EMAIL="admin@cloudpanel.local"
+    fi
 fi
 
 if [[ -z "$ADMIN_PASSWORD" ]]; then
-    read -sp "Enter Admin Password: " ADMIN_PASSWORD
-    echo
+    if [[ -c /dev/tty ]]; then
+        read -sp "Enter Admin Password: " ADMIN_PASSWORD < /dev/tty
+        echo
+    fi
+    if [[ -z "$ADMIN_PASSWORD" ]]; then
+        ADMIN_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom 2>/dev/null | head -c 12 || echo "admin123456")
+        GENERATED_PASS=true
+    fi
 fi
 
 # Step 1: Pre-installation Dependency Check
@@ -143,8 +162,8 @@ if [[ ${#MISSING_PKGS[@]} -gt 0 ]]; then
     done
     echo
 
-    if [[ "$AUTO_YES" != true ]]; then
-        read -p "Do you approve installing these missing dependencies now? [Y/n] " -n 1 -r
+    if [[ "$AUTO_YES" != true && -c /dev/tty ]]; then
+        read -p "Do you approve installing these missing dependencies now? [Y/n] " -n 1 -r < /dev/tty
         echo
         if [[ $REPLY =~ ^[Nn]$ ]]; then
             error "Installation aborted by user (missing dependencies required)."
@@ -171,8 +190,8 @@ else
     echo -e "  ${YELLOW}[MISSING]${NC}   cloudflared"
     echo
     INSTALL_CF=true
-    if [[ "$AUTO_YES" != true ]]; then
-        read -p "Do you approve installing the cloudflared daemon now? [Y/n] " -n 1 -r
+    if [[ "$AUTO_YES" != true && -c /dev/tty ]]; then
+        read -p "Do you approve installing the cloudflared daemon now? [Y/n] " -n 1 -r < /dev/tty
         echo
         if [[ $REPLY =~ ^[Nn]$ ]]; then
             warn "Skipping cloudflared installation. Cloudflare Tunnel will require manual setup later."
@@ -280,14 +299,20 @@ info "Starting and enabling services..."
 systemctl enable --now postgresql redis-server nginx || true
 systemctl enable --now cloudpanel.service cloudpanel-worker.service cloudpanel-scheduler.service || true
 
-# Install global CLI wrapper
-cp -f "$INSTALL_DIR/cli/cloudpanel" /usr/local/bin/cloudpanel
-chmod +x /usr/local/bin/cloudpanel
+# Install global CLI wrapper in both /usr/local/bin AND /usr/bin
+cp -f "$INSTALL_DIR/cli/cloudpanel" /usr/local/bin/cloudpanel 2>/dev/null || true
+chmod +x /usr/local/bin/cloudpanel 2>/dev/null || true
+
+cp -f "$INSTALL_DIR/cli/cloudpanel" /usr/bin/cloudpanel
+chmod +x /usr/bin/cloudpanel
 
 echo
 success "======================================================="
 success " SyncPanel installation completed successfully!       "
 success "======================================================="
-info "Panel Domain : https://$PANEL_DOMAIN"
-info "Admin Email  : $ADMIN_EMAIL"
-info "CLI Utility  : 'cloudpanel doctor' or 'cloudpanel status'"
+info "Panel Domain   : https://$PANEL_DOMAIN"
+info "Admin Email    : $ADMIN_EMAIL"
+if [[ "$GENERATED_PASS" == true ]]; then
+    info "Admin Password : $ADMIN_PASSWORD"
+fi
+info "CLI Utility    : 'cloudpanel doctor' or 'cloudpanel status'"
