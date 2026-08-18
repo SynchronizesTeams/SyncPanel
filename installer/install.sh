@@ -299,12 +299,16 @@ info "Starting and enabling services..."
 systemctl enable --now postgresql redis-server nginx || true
 systemctl enable --now cloudpanel.service cloudpanel-worker.service cloudpanel-scheduler.service || true
 
-# Install global CLI wrapper in both /usr/local/bin AND /usr/bin
-cp -f "$INSTALL_DIR/cli/cloudpanel" /usr/local/bin/cloudpanel 2>/dev/null || true
-chmod +x /usr/local/bin/cloudpanel 2>/dev/null || true
+# Install global CLI wrapper (syncpanel) in both /usr/local/bin AND /usr/bin
+cp -f "$INSTALL_DIR/cli/syncpanel" /usr/local/bin/syncpanel 2>/dev/null || true
+chmod +x /usr/local/bin/syncpanel 2>/dev/null || true
 
-cp -f "$INSTALL_DIR/cli/cloudpanel" /usr/bin/cloudpanel
-chmod +x /usr/bin/cloudpanel
+cp -f "$INSTALL_DIR/cli/syncpanel" /usr/bin/syncpanel
+chmod +x /usr/bin/syncpanel
+
+# Alias cloudpanel to syncpanel for backward compatibility
+ln -sf /usr/bin/syncpanel /usr/bin/cloudpanel 2>/dev/null || true
+ln -sf /usr/local/bin/syncpanel /usr/local/bin/cloudpanel 2>/dev/null || true
 
 echo
 success "======================================================="
@@ -315,4 +319,4 @@ info "Admin Email    : $ADMIN_EMAIL"
 if [[ "$GENERATED_PASS" == true ]]; then
     info "Admin Password : $ADMIN_PASSWORD"
 fi
-info "CLI Utility    : 'cloudpanel doctor' or 'cloudpanel status'"
+info "CLI Utility    : 'syncpanel doctor' or 'syncpanel status'"

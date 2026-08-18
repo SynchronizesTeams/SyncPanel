@@ -72,6 +72,6 @@ if [[ "$REMOVE_DATA" == true ]]; then
     rm -rf /srv/cloudpanel/websites
 fi
 
-rm -f /usr/local/bin/cloudpanel
+rm -f /usr/local/bin/syncpanel /usr/bin/syncpanel /usr/local/bin/cloudpanel /usr/bin/cloudpanel
 
 success "SyncPanel uninstallation finished."

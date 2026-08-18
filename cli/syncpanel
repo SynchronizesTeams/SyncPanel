@@ -22,12 +22,12 @@ case "$COMMAND" in
         ;;
     status)
         echo "=========================================="
-        echo "           CloudPanel Services            "
+        echo "           SyncPanel Services             "
         echo "=========================================="
         systemctl status cloudpanel cloudpanel-worker cloudflared --no-pager || true
         ;;
     restart)
-        echo "[INFO] Restarting CloudPanel services..."
+        echo "[INFO] Restarting SyncPanel services..."
         systemctl restart cloudpanel cloudpanel-worker cloudpanel-scheduler nginx
         echo "[SUCCESS] Services restarted."
         ;;
@@ -46,13 +46,13 @@ case "$COMMAND" in
         php artisan cache:clear && php artisan config:clear
         ;;
     *)
-        echo "CloudPanel CLI Utility"
+        echo "SyncPanel CLI Utility"
         echo
-        echo "Usage: cloudpanel [command]"
+        echo "Usage: syncpanel [command]"
         echo
         echo "Commands:"
         echo "  install        Run full system installer"
-        echo "  update         Update CloudPanel to latest release"
+        echo "  update         Update SyncPanel to latest release"
         echo "  uninstall      Uninstall panel and optionally remove data"
         echo "  doctor         Run system diagnostics and health checks"
         echo "  status         Show systemd services status"

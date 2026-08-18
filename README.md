@@ -9,7 +9,7 @@ A modern, self-hosted web hosting control panel that runs on Linux and integrate
 - **Cloudflare Integration**: Automatic DNS management and proxying through a central Cloudflare Tunnel.
 - **Quota & Resource Management**: Enforce limits on websites count, storage usage (MB), and DNS record creation.
 - **Audit Logging**: Comprehensive activity tracking for administrative and security actions.
-- **CLI & System Utilities**: Includes `cloudpanel` CLI, systemd integration, doctor diagnostics, automated installer/uninstaller, and backup tools.
+- **CLI & System Utilities**: Includes `syncpanel` CLI, systemd integration, doctor diagnostics, automated installer/uninstaller, and backup tools.
 
 ## Architecture
 
