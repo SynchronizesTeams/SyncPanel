@@ -183,6 +183,10 @@ else
     success "All system package dependencies are already installed!"
 fi
 
+info "Activating PHP modules (pdo_pgsql, pgsql, pdo_sqlite, redis)..."
+apt-get install -y -qq php-pgsql php-sqlite3 2>/dev/null || true
+phpenmod pgsql pdo_pgsql pdo_sqlite sqlite3 redis mbstring xml curl zip 2>/dev/null || true
+
 # Step 2: Check Cloudflare Tunnel Daemon (cloudflared)
 info "Checking Cloudflare Tunnel daemon (cloudflared)..."
 if command -v cloudflared &> /dev/null; then
@@ -285,6 +289,11 @@ info "Generating application encryption key..."
 php artisan key:generate --force
 
 info "Migrating database tables..."
+if ! php -m | grep -qi "pdo_pgsql"; then
+    warn "PHP pdo_pgsql module not loaded in CLI. Forcing extension activation..."
+    apt-get install -y -qq php-pgsql 2>/dev/null || true
+    phpenmod pgsql pdo_pgsql 2>/dev/null || true
+fi
 php artisan migrate --force
 
 info "Creating initial Admin account..."
