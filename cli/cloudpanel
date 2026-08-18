@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+set -e
+
+COMMAND="$1"
+shift || true
+
+INSTALL_DIR="/opt/cloudpanel"
+
+case "$COMMAND" in
+    install)
+        bash "$INSTALL_DIR/installer/install.sh" "$@"
+        ;;
+    update)
+        bash "$INSTALL_DIR/installer/update.sh" "$@"
+        ;;
+    uninstall)
+        bash "$INSTALL_DIR/installer/uninstall.sh" "$@"
+        ;;
+    doctor)
+        bash "$INSTALL_DIR/installer/doctor.sh" "$@"
+        ;;
+    status)
+        echo "=========================================="
+        echo "           CloudPanel Services            "
+        echo "=========================================="
+        systemctl status cloudpanel cloudpanel-worker cloudflared --no-pager || true
+        ;;
+    restart)
+        echo "[INFO] Restarting CloudPanel services..."
+        systemctl restart cloudpanel cloudpanel-worker cloudpanel-scheduler nginx
+        echo "[SUCCESS] Services restarted."
+        ;;
+    backup)
+        bash "$INSTALL_DIR/scripts/backup.sh" "$@"
+        ;;
+    restore)
+        bash "$INSTALL_DIR/scripts/restore.sh" "$@"
+        ;;
+    user:create)
+        cd "$INSTALL_DIR/backend"
+        php artisan db:seed --class=DatabaseSeeder
+        ;;
+    cache:clear)
+        cd "$INSTALL_DIR/backend"
+        php artisan cache:clear && php artisan config:clear
+        ;;
+    *)
+        echo "CloudPanel CLI Utility"
+        echo
+        echo "Usage: cloudpanel [command]"
+        echo
+        echo "Commands:"
+        echo "  install        Run full system installer"
+        echo "  update         Update CloudPanel to latest release"
+        echo "  uninstall      Uninstall panel and optionally remove data"
+        echo "  doctor         Run system diagnostics and health checks"
+        echo "  status         Show systemd services status"
+        echo "  restart        Restart panel, queue workers, and Nginx"
+        echo "  backup         Backup database and configuration"
+        echo "  restore <file> Restore panel from backup archive"
+        echo "  cache:clear    Clear Laravel cache and configs"
+        ;;
+esac

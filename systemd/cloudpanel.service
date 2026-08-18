@@ -1,0 +1,15 @@
+[Unit]
+Description=CloudPanel Web Hosting Control Panel Application Service
+After=network.target postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=cloudpanel
+Group=cloudpanel
+WorkingDirectory=/opt/cloudpanel/backend
+ExecStart=/usr/bin/php artisan serve --host=127.0.0.1 --port=8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

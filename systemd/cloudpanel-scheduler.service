@@ -1,0 +1,15 @@
+[Unit]
+Description=CloudPanel Task Scheduler Service
+After=network.target cloudpanel.service
+
+[Service]
+Type=simple
+User=cloudpanel
+Group=cloudpanel
+WorkingDirectory=/opt/cloudpanel/backend
+ExecStart=/usr/bin/php artisan schedule:work
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

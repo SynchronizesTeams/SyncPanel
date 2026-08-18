@@ -1,0 +1,15 @@
+[Unit]
+Description=CloudPanel Queue Worker Service
+After=network.target redis-server.service cloudpanel.service
+
+[Service]
+Type=simple
+User=cloudpanel
+Group=cloudpanel
+WorkingDirectory=/opt/cloudpanel/backend
+ExecStart=/usr/bin/php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
