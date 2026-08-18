@@ -184,7 +184,12 @@ else
 fi
 
 info "Activating PHP modules (pdo_pgsql, pgsql, pdo_sqlite, redis)..."
-apt-get install -y -qq php-pgsql php-sqlite3 2>/dev/null || true
+PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "")
+if [[ -n "$PHP_VER" ]]; then
+    apt-get install -y -qq "php${PHP_VER}-pgsql" "php${PHP_VER}-sqlite3" libpq5 2>/dev/null || true
+    phpenmod -v "$PHP_VER" pgsql pdo_pgsql pdo_sqlite sqlite3 redis mbstring xml curl zip 2>/dev/null || true
+fi
+apt-get install -y -qq php-pgsql php-sqlite3 libpq5 2>/dev/null || true
 phpenmod pgsql pdo_pgsql pdo_sqlite sqlite3 redis mbstring xml curl zip 2>/dev/null || true
 
 # Step 2: Check Cloudflare Tunnel Daemon (cloudflared)
@@ -289,9 +294,13 @@ info "Generating application encryption key..."
 php artisan key:generate --force
 
 info "Migrating database tables..."
+PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "")
 if ! php -m | grep -qi "pdo_pgsql"; then
-    warn "PHP pdo_pgsql module not loaded in CLI. Forcing extension activation..."
-    apt-get install -y -qq php-pgsql 2>/dev/null || true
+    warn "PHP pdo_pgsql module not loaded in CLI. Forcing version-specific extension activation (php${PHP_VER}-pgsql)..."
+    apt-get install -y -qq "php${PHP_VER}-pgsql" php-pgsql libpq5 2>/dev/null || true
+    if [[ -n "$PHP_VER" ]]; then
+        phpenmod -v "$PHP_VER" pgsql pdo_pgsql 2>/dev/null || true
+    fi
     phpenmod pgsql pdo_pgsql 2>/dev/null || true
 fi
 php artisan migrate --force
