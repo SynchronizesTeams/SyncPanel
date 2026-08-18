@@ -375,7 +375,7 @@ chmod +x /usr/bin/syncpanel
 ln -sf /usr/bin/syncpanel /usr/bin/cloudpanel 2>/dev/null || true
 ln -sf /usr/local/bin/syncpanel /usr/local/bin/cloudpanel 2>/dev/null || true
 
-SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || echo "127.0.0.1")
+SERVER_IP=$(ip -4 route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || hostname -I | tr ' ' '\n' | grep -vE '^(172\.(1[6-9]|2[0-9]|3[0-1])|127\.)' | head -n 1 || echo "127.0.0.1")
 
 echo
 success "======================================================="
