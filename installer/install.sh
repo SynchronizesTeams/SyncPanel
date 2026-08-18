@@ -353,8 +353,15 @@ chown -R cloudpanel:cloudpanel "$INSTALL_DIR"
 
 info "Configuring Nginx web server for SyncPanel (Port 8321)..."
 cp -f "$INSTALL_DIR/nginx/cloudpanel.conf" /etc/nginx/sites-available/cloudpanel.conf 2>/dev/null || true
+rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-enabled/000-default 2>/dev/null || true
 ln -sf /etc/nginx/sites-available/cloudpanel.conf /etc/nginx/sites-enabled/cloudpanel.conf 2>/dev/null || true
-nginx -t &>/dev/null && systemctl reload nginx || true
+
+if nginx -t; then
+    systemctl reload nginx || systemctl restart nginx || true
+    success "Nginx configured and listening on port 8321."
+else
+    error "Nginx configuration test failed."
+fi
 
 info "Installing systemd service units..."
 cp -f "$INSTALL_DIR/systemd/"*.service /etc/systemd/system/
