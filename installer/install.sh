@@ -312,6 +312,12 @@ fi
 
 chown -R cloudpanel:cloudpanel "$INSTALL_DIR"
 
+info "Configuring Nginx web server..."
+cp -f "$INSTALL_DIR/nginx/cloudpanel.conf" /etc/nginx/sites-available/cloudpanel.conf 2>/dev/null || true
+ln -sf /etc/nginx/sites-available/cloudpanel.conf /etc/nginx/sites-enabled/cloudpanel.conf 2>/dev/null || true
+rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+nginx -t &>/dev/null && systemctl reload nginx || true
+
 info "Installing systemd service units..."
 cp -f "$INSTALL_DIR/systemd/"*.service /etc/systemd/system/
 systemctl daemon-reload
@@ -331,11 +337,16 @@ chmod +x /usr/bin/syncpanel
 ln -sf /usr/bin/syncpanel /usr/bin/cloudpanel 2>/dev/null || true
 ln -sf /usr/local/bin/syncpanel /usr/local/bin/cloudpanel 2>/dev/null || true
 
+SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || echo "127.0.0.1")
+
 echo
 success "======================================================="
 success " SyncPanel installation completed successfully!       "
 success "======================================================="
-info "Panel Domain   : https://$PANEL_DOMAIN"
+info "Local IP Access: http://$SERVER_IP"
+if [[ -n "$PANEL_DOMAIN" && "$PANEL_DOMAIN" != "localhost" ]]; then
+    info "Domain Access  : https://$PANEL_DOMAIN (or http://$PANEL_DOMAIN)"
+fi
 info "Admin Email    : $ADMIN_EMAIL"
 if [[ "$GENERATED_PASS" == true ]]; then
     info "Admin Password : $ADMIN_PASSWORD"
